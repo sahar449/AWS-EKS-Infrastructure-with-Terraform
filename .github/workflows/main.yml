@@ -114,7 +114,6 @@ jobs:
           cluster_name: ${{ env.cluster_name }}
           aws_region: ${{ env.aws_region }}
           image_tag: ${{ env.image_tag }}
-          # חשבתי להוסיף REPO_URI אם תרצה:
           ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           REPO_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.aws_region }}.amazonaws.com/${{ env.ecr_name }}
         run: |
