@@ -86,7 +86,7 @@ jobs:
         env:
           IMAGE_NAME: ${{ env.ecr_name }}
           IMAGE_TAG: ${{ env.image_tag }}
-        uses: actions/download-artifact@v3 # You can replace this step with your own secret management or use GitHub Secrets with 'cosign-private-key' file.
+        uses: actions/download-artifact@v4 # You can replace this step with your own secret management or use GitHub Secrets with 'cosign-private-key' file.
         with:
           path: ./cosign-keys
         # Assuming you have your private key stored in GitHub secrets as a base64 string or file, you must adapt accordingly.
