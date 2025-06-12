@@ -65,39 +65,30 @@ jobs:
 
       - name: Create ECR Repository if not exists and Push Docker Image
         run: |
-          echo "AWS Region: $aws_region"
-          echo "ECR Name: $ecr_name"
-          echo "Image Tag: $image_tag"
-
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPO_URI="$ACCOUNT_ID.dkr.ecr.$aws_region.amazonaws.com/$ecr_name"
+          REPO_URI="$ACCOUNT_ID.dkr.ecr.${{ env.aws_region }}.amazonaws.com/${{ env.ecr_name }}"
           echo "Repository URI: $REPO_URI"
 
-          aws ecr describe-repositories --repository-names "$ecr_name" --region "$aws_region" > /dev/null 2>&1 || \
-          aws ecr create-repository --repository-name "$ecr_name" --region "$aws_region"
+          aws ecr describe-repositories --repository-names "${{ env.ecr_name }}" --region "${{ env.aws_region }}" > /dev/null 2>&1 || \
+          aws ecr create-repository --repository-name "${{ env.ecr_name }}" --region "${{ env.aws_region }}"
 
-          aws ecr get-login-password --region "$aws_region" | docker login --username AWS --password-stdin "$REPO_URI"
+          aws ecr get-login-password --region "${{ env.aws_region }}" | docker login --username AWS --password-stdin "$REPO_URI"
 
-          docker build -t my-app:$image_tag .
-          docker tag my-app:$image_tag $REPO_URI:$image_tag
-          docker push $REPO_URI:$image_tag
+          docker build -t ${{ env.ecr_name }}:${{ env.image_tag }} .
+          docker tag ${{ env.ecr_name }}:${{ env.image_tag }} $REPO_URI:${{ env.image_tag }}
+          docker push $REPO_URI:${{ env.image_tag }}
 
-      - name: Sign Docker Image with Cosign
-        env:
-          IMAGE_NAME: ${{ env.ecr_name }}
-          IMAGE_TAG: ${{ env.image_tag }}
-        uses: actions/download-artifact@v4 # You can replace this step with your own secret management or use GitHub Secrets with 'cosign-private-key' file.
-        with:
-          path: ./cosign-keys
-        # Assuming you have your private key stored in GitHub secrets as a base64 string or file, you must adapt accordingly.
       - name: Write Cosign Private Key
-        run: echo "${{ secrets.COSIGN_PRIVATE_KEY }}" | base64 -d > cosign.key
+        run: echo "${{ secrets.COSIGN_PRIVATE }}" | base64 -d > cosign.key
+
       - name: Cosign Sign Image
         env:
           IMAGE_NAME: ${{ env.ecr_name }}
           IMAGE_TAG: ${{ env.image_tag }}
+          AWS_REGION: ${{ env.aws_region }}
         run: |
-          REPO_URI=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ env.aws_region }}.amazonaws.com/$IMAGE_NAME
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPO_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_NAME"
           cosign sign --key cosign.key $REPO_URI:$IMAGE_TAG
           cosign sign --key cosign.key $REPO_URI:latest
 
@@ -105,9 +96,11 @@ jobs:
         env:
           IMAGE_NAME: ${{ env.ecr_name }}
           IMAGE_TAG: ${{ env.image_tag }}
+          AWS_REGION: ${{ env.aws_region }}
         run: |
-          echo "${{ secrets.COSIGN_PUBLIC_KEY }}" | base64 -d > cosign.pub
-          REPO_URI=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ env.aws_region }}.amazonaws.com/$IMAGE_NAME
+          echo "${{ secrets.COSIGN_PUBLIC }}" | base64 -d > cosign.pub
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPO_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_NAME"
           cosign verify --key cosign.pub $REPO_URI:$IMAGE_TAG
           echo "✅ Cosign signature verified!"
 
@@ -121,7 +114,9 @@ jobs:
           cluster_name: ${{ env.cluster_name }}
           aws_region: ${{ env.aws_region }}
           image_tag: ${{ env.image_tag }}
-          REPO_URI: ${{ steps.create_ecr_repo.outputs.repo_uri || '' }}
+          # חשבתי להוסיף REPO_URI אם תרצה:
+          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          REPO_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.aws_region }}.amazonaws.com/${{ env.ecr_name }}
         run: |
           aws eks --region "$aws_region" update-kubeconfig --name "$cluster_name"
           helm upgrade --install flask ./flask-app \
