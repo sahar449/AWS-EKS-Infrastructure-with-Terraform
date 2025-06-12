@@ -18,4 +18,4 @@ availability_zones = [
 
 name_prefix = "eksdemo"
 cluster_name = "eksdemo-cluster"
-region = "us-west-2"
+region = "us-west-1"
