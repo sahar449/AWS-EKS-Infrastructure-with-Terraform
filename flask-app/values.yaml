@@ -4,7 +4,7 @@
 # Application settings
 app:
   name: flask-app
-  port: 80
+  port: 5000
 
 # Deployment configuration
 deployment:
@@ -23,8 +23,8 @@ deployment:
 service:
   name: flask-service
   type: NodePort
-  port: 80
-  targetPort: 80
+  port: 5000
+  targetPort: 5000
   protocol: TCP
 
 # Ingress configuration
@@ -39,10 +39,10 @@ ingress:
     alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-2017-01"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}, {"HTTP":80}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
-    external-dns.alpha.kubernetes.io/hostname: "www.saharbittman.com"
+    external-dns.alpha.kubernetes.io/hostname: "wwww.saharbittman.com"
     alb.ingress.kubernetes.io/target-group-port: "80"
   hosts:
-    - host: "www.saharbittman.com"
+    - host: "wwww.saharbittman.com"
       paths:
         - path: /
           pathType: Prefix
