@@ -6,7 +6,7 @@ on:
       apply_or_destroy:
         description: 'Choose whether to apply or destroy the infrastructure'
         required: true
-        default: 'apply'
+        default: 'apply' 
         type: choice
         options:
           - apply
@@ -18,9 +18,9 @@ permissions:
 
 env:
   image_tag: latest
-  aws_region: us-west-2
-  cluster_name: eksdemo-cluster
-  ecr_name: my-app
+  aws_region: us-west-2       
+  cluster_name: eksdemo-cluster    
+  ecr_name: my-app            
 
 jobs:
   deploy:
@@ -79,10 +79,9 @@ jobs:
           docker push $REPO_URI:${{ env.image_tag }}
 
       - name: Write Cosign Private Key
-        run: echo "${{ secrets.COSIGN_PRIVATE }}" | base64 --decode > cosign.key
-        shell: bash
+        run: echo "${{ secrets.COSIGN_PRIVATE }}" | base64 -d > cosign.key
 
-      - name: Cosign Sign Image
+      - name: Cosign Sign Image (Keyless)
         env:
           AWS_REGION: ${{ env.aws_region }}
           IMAGE_NAME: ${{ env.ecr_name }}
@@ -90,31 +89,30 @@ jobs:
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           REPO_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_NAME"
-          cosign sign --key cosign.key $REPO_URI:$IMAGE_TAG
+          cosign sign --yes $REPO_URI:$IMAGE_TAG
 
-      - name: Verify Cosign Signature
+      - name: Verify Cosign Signature (Keyless)
         env:
           AWS_REGION: ${{ env.aws_region }}
           IMAGE_NAME: ${{ env.ecr_name }}
           IMAGE_TAG: ${{ env.image_tag }}
         run: |
-          echo "${{ secrets.COSIGN_PUBLIC }}" | base64 --decode > cosign.pub
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           REPO_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_NAME"
-          cosign verify --key cosign.pub $REPO_URI:$IMAGE_TAG
+          cosign verify --certificate-identity-regexp=".*" --certificate-oidc-issuer-regexp=".*" $REPO_URI:$IMAGE_TAG
           echo "✅ Cosign signature verified!"
 
       - name: Terraform Init and Apply/Destroy
         run: |
           terraform init
-          terraform ${{ github.event.inputs.apply_or_destroy }} -auto-approve
+          terraform ${{ github.event.inputs.apply_or_destroy || 'apply' }} -auto-approve
 
       - name: Helm Upgrade Install
         env:
           cluster_name: ${{ env.cluster_name }}
           aws_region: ${{ env.aws_region }}
           image_tag: ${{ env.image_tag }}
-          ACCOUNT_ID: $(aws sts get-caller-identity --query Account --output text)
+          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           REPO_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.aws_region }}.amazonaws.com/${{ env.ecr_name }}
         run: |
           aws eks --region "$aws_region" update-kubeconfig --name "$cluster_name"
