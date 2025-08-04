@@ -18,6 +18,9 @@ deployment:
     requests:
       cpu: 100m
       memory: 128Mi
+image:
+  repository:
+  tag: 
 
 # Service configuration
 service:

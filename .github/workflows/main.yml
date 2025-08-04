@@ -34,15 +34,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y curl gnupg software-properties-common lsb-release
+
           # Install Terraform
           curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
           sudo apt-get update && sudo apt-get install -y terraform
+
           # Install Cosign
           COSIGN_VERSION=$(curl -s https://api.github.com/repos/sigstore/cosign/releases/latest | grep tag_name | cut -d '"' -f 4)
           curl -Lo cosign https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64
           chmod +x cosign
           sudo mv cosign /usr/local/bin/cosign
+
+          # Install yq (v4+)
+          YQ_BINARY="yq_linux_amd64"
+          YQ_VERSION=$(curl -s https://api.github.com/repos/mikefarah/yq/releases/latest | grep tag_name | cut -d '"' -f 4)
+          curl -Lo yq https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}
+          chmod +x yq
+          sudo mv yq /usr/local/bin/yq
+
 
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
@@ -67,16 +77,25 @@ jobs:
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           REPO_URI="$ACCOUNT_ID.dkr.ecr.${{ env.aws_region }}.amazonaws.com/${{ env.ecr_name }}"
-          echo "Repository URI: $REPO_URI"
+          IMAGE_TAG="${{ env.image_tag }}"
 
-          aws ecr describe-repositories --repository-names "${{ env.ecr_name }}" --region "${{ env.aws_region }}" > /dev/null 2>&1 || \
-          aws ecr create-repository --repository-name "${{ env.ecr_name }}" --region "${{ env.aws_region }}"
+          aws ecr describe-repositories \
+            --repository-names "${{ env.ecr_name }}" \
+            --region "${{ env.aws_region }}" > /dev/null 2>&1 || \
+          aws ecr create-repository \
+            --repository-name "${{ env.ecr_name }}" \
+            --region "${{ env.aws_region }}"
 
-          aws ecr get-login-password --region "${{ env.aws_region }}" | docker login --username AWS --password-stdin "$REPO_URI"
+          aws ecr get-login-password --region "${{ env.aws_region }}" \
+            | docker login --username AWS --password-stdin "$REPO_URI"
 
-          docker build -t ${{ env.ecr_name }}:${{ env.image_tag }} .
-          docker tag ${{ env.ecr_name }}:${{ env.image_tag }} $REPO_URI:${{ env.image_tag }}
-          docker push $REPO_URI:${{ env.image_tag }}
+          docker build -t ${{ env.ecr_name }}:$IMAGE_TAG .
+          docker tag ${{ env.ecr_name }}:$IMAGE_TAG $REPO_URI:$IMAGE_TAG
+          docker push $REPO_URI:$IMAGE_TAG
+
+          yq e '.image.repository = "'$REPO_URI'"' -i flask-app/values.yaml
+          yq e '.image.tag = "'$IMAGE_TAG'"' -i flask-app/values.yaml
+
 
       - name: Write Cosign Private Key
         run: echo "${{ secrets.COSIGN_PRIVATE }}" | base64 -d > cosign.key
