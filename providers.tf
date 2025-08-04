@@ -29,13 +29,13 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.7.0"
     }
-  }
-
-  backend "s3" {
-    bucket = "sahar-bucketttttt"
-    key    = "test/terraform.tfstate"
-    region = "us-west-2"
-    #use_lockfile = true #lock file
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.13.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.17.0"
+    }
   }
 }
-
